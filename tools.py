@@ -103,6 +103,44 @@ def _find_option(field: dict[str, Any], option_value: str) -> dict[str, Any] | N
     return next((o for o in field.get("values", []) or [] if o.get("value") == option_value), None)
 
 
+def _screen_summary(backend: FilesystemBackend, screen_id: str, max_labels: int = 5) -> str:
+    """One line describing what's actually on a screen, built from its live
+    fieldLabels -- not a hardcoded description, so it can never drift out of
+    sync with the real JSON (which admins can change via this very tool).
+    """
+    try:
+        fields = _read_screen(backend, screen_id)["fields"]
+    except ValueError:
+        return screen_id
+    labels = [f.get("fieldLabel", "") for f in fields[:max_labels]]
+    return f"{screen_id}: {', '.join(labels)}"
+
+
+# Which of FieldEdit's optional attributes each op is actually allowed to use.
+# Anything set outside this list is a sign the model is trying to change
+# something this tool has no support for (e.g. `required`, `controlType`,
+# `dataType` on an EXISTING field) -- silently ignoring it would let the
+# agent report a false "no change needed" or a no-op success instead of
+# telling the admin the edit isn't possible. See _unsupported_edit_fields.
+_ALLOWED_EDIT_FIELDS: dict[str, set[str]] = {
+    "add_field": {"field_label", "control_type", "data_type", "required", "default_value"},
+    "delete_field": set(),
+    "rename_field": {"field_label"},
+    "add_option": {"option_value", "option_label"},
+    "rename_option": {"option_value", "option_label", "new_option_value"},
+    "remove_option": {"option_value"},
+}
+_EDIT_ATTR_NAMES = [
+    "field_label", "control_type", "data_type", "required", "default_value",
+    "option_value", "option_label", "new_option_value",
+]
+
+
+def _unsupported_edit_fields(edit: FieldEdit) -> list[str]:
+    allowed = _ALLOWED_EDIT_FIELDS.get(edit.op, set())
+    return [name for name in _EDIT_ATTR_NAMES if name not in allowed and getattr(edit, name) is not None]
+
+
 def build_tools(backend: FilesystemBackend, model) -> list:
     """Build the six agent tools, closing over `backend` (real disk I/O) and
     `model` (used only for the two structured-output classification calls).
@@ -117,10 +155,21 @@ def build_tools(backend: FilesystemBackend, model) -> list:
         specific screen's fields.
         """
         screens = list_known_screens(backend)
+        screen_summaries = [_screen_summary(backend, s) for s in screens]
         prompt = (
             "You are matching an admin's field-edit request to the screen(s) it targets.\n"
-            f"Known screens (files on disk): {screens}\n"
+            "Known screens (id: sample of the fields actually on that screen):\n"
+            + "\n".join(f"- {s}" for s in screen_summaries) + "\n"
             f"Admin message: {message!r}\n"
+            "Priority order, in this exact order:\n"
+            "1. If the admin explicitly names a screen number or id (e.g. 'screen 1', "
+            "'screen_2', 'screen 3'), that ALWAYS wins -- use exactly the screen(s) "
+            "named, even if the field or topic mentioned sounds like it would fit a "
+            "different screen better. An admin adding an unusual field to a screen on "
+            "purpose is their call, not something to second-guess.\n"
+            "2. Only when NO explicit screen number/id is given anywhere in the message, "
+            "match by topic using the field-label samples above (e.g. 'the customer "
+            "identity screen').\n"
             "Return every screen the message plausibly targets. If the message is "
             "generic and could apply to any screen, say so via low confidence."
         )
@@ -189,6 +238,17 @@ def build_tools(backend: FilesystemBackend, model) -> list:
         tell the admin no change is needed and skip confirmation for this field
         entirely, rather than showing a pointless diff.
         """
+        unsupported = _unsupported_edit_fields(edit)
+        if unsupported:
+            return json.dumps({
+                "error": (
+                    f"'{edit.op}' cannot change {', '.join(unsupported)} -- this tool has no "
+                    "way to edit that attribute on an existing field. This is not a noop and "
+                    "not supported: tell the admin this specific change isn't possible, don't "
+                    "report success or 'no change needed'."
+                )
+            })
+
         thread_id = _thread_id(config)
         fields = _drafts.get((thread_id, screen_id), [])
         field = _find_field(fields, edit.path)
@@ -232,6 +292,17 @@ def build_tools(backend: FilesystemBackend, model) -> list:
         dropdown/radio field's values[]. Returns a before/after diff for just
         the field touched.
         """
+        unsupported = _unsupported_edit_fields(edit)
+        if unsupported:
+            return json.dumps({
+                "error": (
+                    f"'{edit.op}' cannot change {', '.join(unsupported)} -- this tool has no "
+                    "way to edit that attribute on an existing field. Tell the admin this "
+                    "specific change isn't possible; do not apply a partial or unrelated edit "
+                    "instead."
+                )
+            })
+
         thread_id = _thread_id(config)
         key = (thread_id, screen_id)
         if key not in _drafts:

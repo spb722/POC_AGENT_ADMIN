@@ -1,0 +1,159 @@
+[
+    {
+        "sessionId": "sess-20260731-2222",
+        "stage": 3,
+        "status": "STAGE_INCOMPLETE",
+        "nextStage": 4,
+        "fields": [
+            {
+                "type": "set",
+                "path": "customerBilling.basicDetails.firstName",
+                "fieldLabel": "First Name",
+                "controlType": "text",
+                "dataType": "text",
+                "required": true,
+                "value": "Ahmed",
+                "origin": "extracted"
+            },
+            {
+                "type": "set",
+                "path": "customerBilling.basicDetails.lastName",
+                "fieldLabel": "Last Name",
+                "controlType": "text",
+                "dataType": "text",
+                "required": true,
+                "value": "Al Balushi",
+                "origin": "extracted"
+            },
+            {
+                "type": "set",
+                "path": "customerBilling.basicDetails.idType",
+                "fieldLabel": "ID Type",
+                "controlType": "dropdown",
+                "dataType": "list",
+                "required": true,
+                "value": "CIVIL_ID",
+                "origin": "extracted",
+                "cascade": true,
+                "values": [
+                    {
+                        "label": "Civil ID",
+                        "value": "CIVIL_ID"
+                    },
+                    {
+                        "label": "Passport",
+                        "value": "PASSPORT"
+                    },
+                    {
+                        "label": "Resident Card",
+                        "value": "RESIDENT_CARD"
+                    }
+                ]
+            },
+            {
+                "type": "set",
+                "path": "customerBilling.basicDetails.idNumber",
+                "fieldLabel": "ID Number",
+                "controlType": "text",
+                "dataType": "text",
+                "required": true,
+                "value": "1234567890",
+                "origin": "extracted"
+            },
+            {
+                "type": "set",
+                "path": "customerBilling.basicDetails.idExpiryDate",
+                "fieldLabel": "ID Expiry Date",
+                "controlType": "date",
+                "dataType": "date",
+                "required": true,
+                "value": "2031-04-12",
+                "origin": "extracted"
+            },
+            {
+                "type": "set",
+                "path": "customerBilling.basicDetails.dateOfBirth",
+                "fieldLabel": "Date of Birth",
+                "controlType": "date",
+                "dataType": "date",
+                "required": true,
+                "value": "2002-09-18",
+                "origin": "extracted"
+            },
+            {
+                "type": "set",
+                "path": "customerBilling.basicDetails.nationality",
+                "fieldLabel": "Nationality",
+                "controlType": "dropdown",
+                "dataType": "list",
+                "required": true,
+                "value": "OM",
+                "origin": "extracted",
+                "values": [
+                    {
+                        "label": "Omani",
+                        "value": "OM"
+                    },
+                    {
+                        "label": "Indian",
+                        "value": "IN"
+                    },
+                    {
+                        "label": "Pakistani",
+                        "value": "PK"
+                    },
+                    {
+                        "label": "Egyptian",
+                        "value": "EG"
+                    },
+                    {
+                        "label": "Filipino",
+                        "value": "PH"
+                    }
+                ]
+            },
+            {
+                "type": "set",
+                "path": "customerBilling.basicDetails.contactNumber",
+                "fieldLabel": "Contact Number",
+                "controlType": "text",
+                "dataType": "text",
+                "required": true,
+                "value": "91234567",
+                "origin": "extracted"
+            },
+            {
+                "type": "set",
+                "path": "customerBilling.basicDetails.email",
+                "fieldLabel": "Email",
+                "controlType": "text",
+                "dataType": "text",
+                "required": true,
+                "value": "ahmed.balushi@example.com",
+                "origin": "extracted"
+            },
+            {
+                "type": "set",
+                "path": "customerBilling.basicDetails.language",
+                "fieldLabel": "Language",
+                "controlType": "dropdown",
+                "dataType": "list",
+                "required": true,
+                "value": "EN",
+                "origin": "default",
+                "values": [
+                    {
+                        "label": "English",
+                        "value": "EN"
+                    },
+                    {
+                        "label": "Arabic",
+                        "value": "AR"
+                    }
+                ]
+            }
+        ],
+        "ask": "Billing Account Name",
+        "say": "Basic Details is complete. Moving on to Billing Information. Please provide Billing Account Name."
+    }
+]

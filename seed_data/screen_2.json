@@ -1,0 +1,135 @@
+[
+  {
+    "sessionId": "sess-20260731-1111",
+    "stage": 2,
+    "status": "STAGE_INCOMPLETE",
+    "nextStage": 3,
+    "fields": [
+      {
+        "type": "set",
+        "path": "serviceDetails.connectionType",
+        "fieldLabel": "Connection Type",
+        "controlType": "dropdown",
+        "dataType": "list",
+        "required": true,
+        "value": "1",
+        "origin": "extracted",
+        "values": [
+          {
+            "label": "Postpaid",
+            "value": "1"
+          },
+          {
+            "label": "Prepaid",
+            "value": "2"
+          }
+        ]
+      },
+      {
+        "type": "set",
+        "path": "serviceDetails.serviceType",
+        "fieldLabel": "Service Type",
+        "controlType": "dropdown",
+        "dataType": "list",
+        "required": true,
+        "value": "1",
+        "origin": "extracted",
+        "values": [
+          {
+            "label": "GSM",
+            "value": "1"
+          },
+          {
+            "label": "FTTH",
+            "value": "2"
+          },
+          {
+            "label": "IPTV",
+            "value": "7"
+          }
+        ],
+        "cascade": true
+      },
+      {
+        "type": "set",
+        "path": "serviceDetails.groups[*].onboardingType",
+        "fieldLabel": "Onboarding Type",
+        "controlType": "radio",
+        "dataType": "list",
+        "required": true,
+        "value": "NEW_SERVICE",
+        "origin": "extracted",
+        "values": [
+          {
+            "label": "New Service",
+            "value": "NEW_SERVICE"
+          },
+          {
+            "label": "MNP",
+            "value": "MNP"
+          }
+        ]
+      },
+      {
+        "type": "set",
+        "path": "serviceDetails.groups[*].simType",
+        "fieldLabel": "SIM Type",
+        "controlType": "radio",
+        "dataType": "list",
+        "required": true,
+        "value": "PHYSICAL",
+        "origin": "extracted",
+        "values": [
+          {
+            "label": "Physical SIM",
+            "value": "PHYSICAL"
+          },
+          {
+            "label": "eSIM",
+            "value": "ESIM"
+          }
+        ]
+      },
+      {
+        "type": "set",
+        "path": "serviceDetails.groups[*].serviceCategory",
+        "fieldLabel": "Service Category",
+        "controlType": "dropdown",
+        "dataType": "list",
+        "required": true,
+        "value": "STD",
+        "origin": "extracted",
+        "values": [
+          {
+            "label": "Standard",
+            "value": "STD"
+          },
+          {
+            "label": "Platinum",
+            "value": "PLT"
+          },
+          {
+            "label": "Gold",
+            "value": "GLD"
+          },
+          {
+            "label": "Silver",
+            "value": "SLV"
+          }
+        ]
+      },
+      {
+        "type": "set",
+        "path": "serviceDetails.groups[*].serviceStartDate",
+        "fieldLabel": "Service Start Date",
+        "controlType": "date",
+        "dataType": "date",
+        "required": true,
+        "value": "next Monday",
+        "origin": "extracted"
+      }
+    ],
+    "ask": "Service Name",
+    "say": "Please provide Service Name."
+  }
+]

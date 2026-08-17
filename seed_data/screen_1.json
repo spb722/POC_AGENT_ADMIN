@@ -1,0 +1,108 @@
+[
+    {
+        "sessionId": "sess-20260731-0000",
+        "stage": 1,
+        "status": "STAGE_COMPLETE",
+        "nextStage": 2,
+        "fields": [
+            {
+                "type": "set",
+                "path": "connectionInfo.category",
+                "fieldLabel": "Category",
+                "controlType": "dropdown",
+                "dataType": "list",
+                "required": true,
+                "value": "21",
+                "origin": "extracted",
+                "cascade": true,
+                "values": []
+            },
+            {
+                "type": "set",
+                "path": "connectionInfo.subCategory",
+                "fieldLabel": "Sub Category",
+                "controlType": "dropdown",
+                "dataType": "list",
+                "required": true,
+                "value": "211",
+                "origin": "extracted",
+                "cascade": true,
+                "values": [
+                    {
+                        "label": "Student",
+                        "value": "211"
+                    },
+                    {
+                        "label": "Salaried",
+                        "value": "212"
+                    },
+                    {
+                        "label": "Self Employed",
+                        "value": "213"
+                    }
+                ]
+            },
+            {
+                "type": "set",
+                "path": "connectionInfo.address.fullAddress",
+                "fieldLabel": "Full Address",
+                "controlType": "text",
+                "dataType": "text",
+                "required": true,
+                "value": "Building 12, Way 4406, Al Khuwair, Muscat, postal code 112",
+                "origin": "extracted"
+            },
+            {
+                "type": "set",
+                "path": "connectionInfo.address.district",
+                "fieldLabel": "District",
+                "controlType": "dropdown",
+                "dataType": "list",
+                "required": true,
+                "value": "MCT",
+                "origin": "extracted"
+            },
+            {
+                "type": "set",
+                "path": "connectionInfo.address.subcity",
+                "fieldLabel": "Subcity",
+                "controlType": "dropdown",
+                "dataType": "list",
+                "required": true,
+                "value": "MCT-KHW",
+                "origin": "extracted",
+                "cascade": true,
+                "values": [
+                    {
+                        "label": "Al Khuwair",
+                        "value": "MCT-KHW"
+                    },
+                    {
+                        "label": "Ruwi",
+                        "value": "MCT-RUW"
+                    },
+                    {
+                        "label": "Seeb",
+                        "value": "MCT-SEB"
+                    },
+                    {
+                        "label": "Qurum",
+                        "value": "MCT-QUR"
+                    }
+                ]
+            },
+            {
+                "type": "set",
+                "path": "connectionInfo.address.postalCode",
+                "fieldLabel": "Postal Code",
+                "controlType": "text",
+                "dataType": "text",
+                "required": true,
+                "value": "112",
+                "origin": "extracted"
+            }
+        ],
+        "ask": "Connection Type",
+        "say": "Connection Info is complete. Moving on to Service Details. Please provide Connection Type."
+    }
+]

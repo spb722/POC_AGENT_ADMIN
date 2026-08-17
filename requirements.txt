@@ -1,0 +1,8 @@
+deepagents>=0.7.6
+langchain-openrouter>=0.2.8
+langgraph>=1.2.11
+langchain>=1.2.0
+fastapi>=0.141.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.9.0
+python-dotenv>=1.0.1

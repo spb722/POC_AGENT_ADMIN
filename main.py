@@ -16,6 +16,7 @@ import uuid
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from langgraph.types import Command
 
 load_dotenv()
@@ -28,6 +29,15 @@ from tools import clear_thread_state, get_draft_fields, get_pending_diffs, reset
 configure_logging()
 
 app = FastAPI(title="AARYA Admin Field-Editor")
+
+# POC: wide open for any frontend origin to call this during development.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,  # must be False when allow_origins is "*"
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Pristine copies of the seed screens, kept outside data/ so the agent's
 # FilesystemBackend (rooted at data/) never sees or lists them as a screen.

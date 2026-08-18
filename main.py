@@ -132,6 +132,10 @@ def _describe_diff_friendly(d: dict) -> str:
         return f"Removed the '{before.get('fieldLabel')}' field from {screen}."
     if op == "rename_field":
         return f"Renamed '{before.get('fieldLabel')}' to '{after.get('fieldLabel')}' on {screen}."
+    if op == "set_default_value":
+        field_label = after.get("fieldLabel")
+        old_value, new_value = before.get("value"), after.get("value")
+        return f"Changed the default value of '{field_label}' from '{old_value}' to '{new_value}' on {screen}."
     if op in ("add_option", "rename_option", "remove_option"):
         field_label = (after or before).get("fieldLabel")
         old_label, new_label = _option_change(before or {}, after or {})

@@ -132,6 +132,7 @@ _ALLOWED_EDIT_FIELDS: dict[str, set[str]] = {
     "add_option": {"option_value", "option_label"},
     "rename_option": {"option_value", "option_label", "new_option_value"},
     "remove_option": {"option_value"},
+    "set_default_value": {"default_value"},
 }
 _EDIT_ATTR_NAMES = [
     "field_label", "control_type", "data_type", "required", "default_value",
@@ -269,6 +270,9 @@ def build_tools(backend: FilesystemBackend, model) -> list:
         elif edit.op == "delete_field":
             noop = False
             reason = "field exists and would be removed"
+        elif edit.op == "set_default_value":
+            noop = field.get("value", "") == (edit.default_value or "")
+            reason = "value already matches" if noop else "value differs"
         elif edit.op in ("add_option", "rename_option", "remove_option"):
             existing = _find_option(field, edit.option_value) if edit.option_value else None
             if edit.op == "add_option":
@@ -292,9 +296,9 @@ def build_tools(backend: FilesystemBackend, model) -> list:
         """Apply one field edit to the in-memory draft (never touches disk).
 
         Supports add_field, delete_field, rename_field (fieldLabel only -- path
-        never changes), and add_option/rename_option/remove_option on a
-        dropdown/radio field's values[]. Returns a before/after diff for just
-        the field touched.
+        never changes), set_default_value (the field's stored 'value'), and
+        add_option/rename_option/remove_option on a dropdown/radio field's
+        values[]. Returns a before/after diff for just the field touched.
         """
         unsupported = _unsupported_edit_fields(edit)
         if unsupported:
@@ -345,6 +349,12 @@ def build_tools(backend: FilesystemBackend, model) -> list:
             if edit.field_label is None:
                 return json.dumps({"error": "rename_field requires field_label"})
             field["fieldLabel"] = edit.field_label
+            after = field
+
+        elif edit.op == "set_default_value":
+            if edit.default_value is None:
+                return json.dumps({"error": "set_default_value requires default_value"})
+            field["value"] = edit.default_value
             after = field
 
         elif edit.op in ("add_option", "rename_option", "remove_option"):

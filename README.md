@@ -8,6 +8,12 @@ a diff in memory, and only writes to disk once the admin confirms.
 This is a proof-of-concept: no auth, no Docker, no database, flat JSON files
 on disk, one FastAPI process, run locally.
 
+Supported edits: add/delete/rename a field (label only, `path` never
+changes), add/rename/remove a dropdown or radio option, and set a field's
+default value. Not supported: changing a field's `required` status,
+`controlType`, or `dataType` — the agent will say so plainly rather than
+reporting a false success.
+
 ## Stack
 
 - Python 3.11+, FastAPI

@@ -12,6 +12,11 @@ http://127.0.0.1:8000
 Everything here can be run via `curl`, Postman, or FastAPI's own Swagger UI
 at `http://127.0.0.1:8000/docs`.
 
+**Supported edits**: add/delete/rename a field (label only), add/rename/
+remove a dropdown or radio option, and set a field's default value. Not
+supported: a field's `required` status, `controlType`, or `dataType` — the
+agent will say so plainly instead of reporting a false success.
+
 ---
 
 ## 1. The four endpoints

@@ -46,6 +46,7 @@ EditOp = Literal[
     "add_option",
     "rename_option",
     "remove_option",
+    "set_default_value",
 ]
 
 
@@ -65,7 +66,10 @@ class FieldEdit(BaseModel):
     control_type: str | None = Field(default=None, description="add_field only, e.g. 'dropdown', 'text'")
     data_type: str | None = Field(default=None, description="add_field only, e.g. 'list', 'text'")
     required: bool | None = Field(default=None, description="add_field only, defaults to False")
-    default_value: str | None = Field(default=None, description="add_field only, initial 'value'")
+    default_value: str | None = Field(
+        default=None,
+        description="add_field: initial 'value' for the new field. set_default_value: the new 'value' for an existing field.",
+    )
 
     # add_option / rename_option / remove_option (values[] entries)
     option_value: str | None = Field(default=None, description="The values[].value being targeted")

@@ -63,14 +63,22 @@ Hard rules:
   moment apply_field_edit has been called for everything the admin asked for,
   your very next action must be a write_screen_json tool call (one per
   affected screen) -- not text, not a question, a tool call.
-- This tool only supports: adding/deleting/renaming a field (label only), and
-  adding/renaming/removing a dropdown or radio option. It CANNOT change a
-  field's `required` status, `controlType`, `dataType`, or default `value` --
-  there is no operation for that. If check_noop or apply_field_edit returns an
-  error saying an attribute can't be changed, that is the truth: tell the
-  admin plainly that this specific change isn't supported. NEVER report
-  success or "no change needed" for something that error just told you is
-  unsupported -- that would be reporting a false state to the admin.
+- This tool only supports: adding/deleting/renaming a field (label only),
+  adding/renaming/removing a dropdown or radio option, and setting a field's
+  default `value` (op="set_default_value", using the `default_value`
+  attribute). It CANNOT change a field's `required` status, `controlType`, or
+  `dataType` -- there is no operation for that. If check_noop or
+  apply_field_edit returns an error saying an attribute can't be changed, that
+  is the truth: tell the admin plainly that this specific change isn't
+  supported. NEVER report success or "no change needed" for something that
+  error just told you is unsupported -- that would be reporting a false state
+  to the admin.
+- When an admin's requested value is relative or vague ("next Monday", "next
+  Friday", "soon") rather than a concrete literal, do NOT guess or compute a
+  date yourself -- you have no reliable notion of "today". Ask the admin to
+  restate it as the exact literal value to store (e.g. an actual date string
+  or whatever format the field already uses), then call set_default_value
+  with that literal.
 """
 
 

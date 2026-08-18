@@ -103,16 +103,19 @@ def _find_option(field: dict[str, Any], option_value: str) -> dict[str, Any] | N
     return next((o for o in field.get("values", []) or [] if o.get("value") == option_value), None)
 
 
-def _screen_summary(backend: FilesystemBackend, screen_id: str, max_labels: int = 5) -> str:
+def _screen_summary(backend: FilesystemBackend, screen_id: str) -> str:
     """One line describing what's actually on a screen, built from its live
     fieldLabels -- not a hardcoded description, so it can never drift out of
     sync with the real JSON (which admins can change via this very tool).
+    Lists every field, not a truncated sample: a field left out of the
+    summary is invisible to classify_screen, which then wrongly reports it
+    as not present on any screen instead of matching it.
     """
     try:
         fields = _read_screen(backend, screen_id)["fields"]
     except ValueError:
         return screen_id
-    labels = [f.get("fieldLabel", "") for f in fields[:max_labels]]
+    labels = [f.get("fieldLabel", "") for f in fields]
     return f"{screen_id}: {', '.join(labels)}"
 
 
@@ -158,7 +161,7 @@ def build_tools(backend: FilesystemBackend, model) -> list:
         screen_summaries = [_screen_summary(backend, s) for s in screens]
         prompt = (
             "You are matching an admin's field-edit request to the screen(s) it targets.\n"
-            "Known screens (id: sample of the fields actually on that screen):\n"
+            "Known screens (id: every field actually on that screen):\n"
             + "\n".join(f"- {s}" for s in screen_summaries) + "\n"
             f"Admin message: {message!r}\n"
             "Priority order, in this exact order:\n"
@@ -168,8 +171,9 @@ def build_tools(backend: FilesystemBackend, model) -> list:
             "different screen better. An admin adding an unusual field to a screen on "
             "purpose is their call, not something to second-guess.\n"
             "2. Only when NO explicit screen number/id is given anywhere in the message, "
-            "match by topic using the field-label samples above (e.g. 'the customer "
-            "identity screen').\n"
+            "match by the field list above -- either a specific field name (e.g. "
+            "'service start date' matching a fieldLabel) or the overall topic (e.g. "
+            "'the customer identity screen').\n"
             "Return every screen the message plausibly targets. If the message is "
             "generic and could apply to any screen, say so via low confidence."
         )

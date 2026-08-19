@@ -23,16 +23,29 @@
     ]
   },
   {
-    "ruleId": "prepaid_no_billing_account",
+    "ruleId": "prepaid_no_billing_info",
     "screenId": "screen_2",
     "trigger": {
       "path": "serviceDetails.connectionType",
       "value": "2"
     },
+    "targetScreenId": "screen_3",
     "changes": [
       {
         "op": "remove_field",
-        "path": "serviceDetails.groups[*].billingAccountName"
+        "path": "customerBilling.billingInfo.billingAccountName"
+      },
+      {
+        "op": "remove_field",
+        "path": "customerBilling.billingInfo.billingAddress"
+      },
+      {
+        "op": "remove_field",
+        "path": "customerBilling.billingInfo.billingEmail"
+      },
+      {
+        "op": "remove_field",
+        "path": "customerBilling.billingInfo.billingContactNumber"
       }
     ]
   },

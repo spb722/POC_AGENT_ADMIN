@@ -24,7 +24,7 @@ load_dotenv()
 from agent import DATA_DIR, build_agent  # noqa: E402  (must run after load_dotenv)
 from logging_setup import RunLoggingHandler, configure_logging, logger  # noqa: E402
 from models import ChatRequest, ChatResponse, ConditionalPreviewRequest, ConditionalPreviewResponse  # noqa: E402
-from preview import apply_conditional_rules  # noqa: E402
+from preview import apply_conditional_rules, clear_recorded_values, resolve_screen_fields  # noqa: E402
 from tools import clear_thread_state, get_draft_fields, get_pending_diffs, reset_drafts_for_screen  # noqa: E402
 
 configure_logging()
@@ -194,8 +194,12 @@ def _render_rejected_reply(diffs: list[dict]) -> str:
 
 def _screen_view(screen_id: str, session_id: str | None = None) -> list | None:
     """Full screen content (the same one-element-list shape as the seed
-    files), with the session's staged draft fields spliced in if given and
-    present. None if the screen file doesn't exist on disk.
+    files). If `session_id` has a staged (not yet confirmed) admin-chat draft
+    for this screen, that draft's fields are shown as-is. Otherwise, any
+    conditional_rules.json rules currently matching (same-screen or
+    cross-screen, e.g. screen_2's connectionType affecting screen_3's billing
+    fields) are baked in on top of the on-disk fields. None if the screen
+    file doesn't exist on disk.
     """
     path = os.path.join(DATA_DIR, f"{screen_id}.json")
     if not os.path.isfile(path):
@@ -206,6 +210,9 @@ def _screen_view(screen_id: str, session_id: str | None = None) -> list | None:
         draft_fields = get_draft_fields(session_id, screen_id)
         if draft_fields is not None:
             screen[0]["fields"] = draft_fields
+            return screen
+    fields, _ = resolve_screen_fields(get_backend(), screen_id)
+    screen[0]["fields"] = fields
     return screen
 
 
@@ -341,6 +348,7 @@ def reset_screen(screen_id: str):
         raise HTTPException(status_code=404, detail=f"no seed backup for '{screen_id}'")
     shutil.copyfile(seed_path, os.path.join(DATA_DIR, f"{screen_id}.json"))
     reset_drafts_for_screen(screen_id)
+    clear_recorded_values(screen_id)
     logger.info("SCREEN_RESET screen_id=%s", screen_id)
     return get_screen(screen_id)
 
@@ -354,6 +362,7 @@ def reset_all_screens():
             screen_id = name.removesuffix(".json")
             shutil.copyfile(os.path.join(SEED_DIR, name), os.path.join(DATA_DIR, name))
             reset_drafts_for_screen(screen_id)
+            clear_recorded_values(screen_id)
             reset_ids.append(screen_id)
     logger.info("SCREEN_RESET_ALL screen_ids=%s", reset_ids)
     return {"reset": reset_ids}

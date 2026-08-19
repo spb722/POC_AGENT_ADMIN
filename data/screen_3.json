@@ -151,6 +151,46 @@
                         "value": "AR"
                     }
                 ]
+            },
+            {
+                "type": "set",
+                "path": "customerBilling.billingInfo.billingAccountName",
+                "fieldLabel": "Billing Account Name",
+                "controlType": "text",
+                "dataType": "text",
+                "required": true,
+                "value": "AB-100234",
+                "origin": "extracted"
+            },
+            {
+                "type": "set",
+                "path": "customerBilling.billingInfo.billingAddress",
+                "fieldLabel": "Billing Address",
+                "controlType": "text",
+                "dataType": "text",
+                "required": true,
+                "value": "Building 12, Way 4406, Al Khuwair, Muscat, postal code 112",
+                "origin": "extracted"
+            },
+            {
+                "type": "set",
+                "path": "customerBilling.billingInfo.billingEmail",
+                "fieldLabel": "Billing Email",
+                "controlType": "text",
+                "dataType": "text",
+                "required": true,
+                "value": "ahmed.balushi@example.com",
+                "origin": "extracted"
+            },
+            {
+                "type": "set",
+                "path": "customerBilling.billingInfo.billingContactNumber",
+                "fieldLabel": "Billing Contact Number",
+                "controlType": "text",
+                "dataType": "text",
+                "required": true,
+                "value": "91234567",
+                "origin": "extracted"
             }
         ],
         "ask": "Billing Account Name",

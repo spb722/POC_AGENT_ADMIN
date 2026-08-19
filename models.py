@@ -99,3 +99,17 @@ class ChatResponse(BaseModel):
         description="Screens this turn touched. Only meaningful as a refetch signal when status=='ok'.",
     )
     run_id: str = Field(description="Grep this in logs/agent.log to see everything this turn did")
+
+
+class ConditionalPreviewRequest(BaseModel):
+    screen_id: str
+    path: str
+    value: str
+
+
+class ConditionalPreviewResponse(BaseModel):
+    screen_id: str
+    fields: list[dict]
+    rule_matched: str | None = Field(
+        description="ruleId of the matched conditional rule, or null if none matched (default fields returned unchanged)"
+    )

@@ -1,0 +1,151 @@
+[
+  {
+    "ruleId": "student_id_upload",
+    "screenId": "screen_1",
+    "trigger": {
+      "path": "connectionInfo.subCategory",
+      "value": "211"
+    },
+    "changes": [
+      {
+        "op": "add_field",
+        "field": {
+          "type": "set",
+          "path": "connectionInfo.studentIdUpload",
+          "fieldLabel": "Student ID Card Upload",
+          "controlType": "upload",
+          "dataType": "file",
+          "required": true,
+          "value": "",
+          "origin": "conditional"
+        }
+      }
+    ]
+  },
+  {
+    "ruleId": "prepaid_no_billing_account",
+    "screenId": "screen_2",
+    "trigger": {
+      "path": "serviceDetails.connectionType",
+      "value": "2"
+    },
+    "changes": [
+      {
+        "op": "remove_field",
+        "path": "serviceDetails.groups[*].billingAccountName"
+      }
+    ]
+  },
+  {
+    "ruleId": "ftth_start_date_optional",
+    "screenId": "screen_2",
+    "trigger": {
+      "path": "serviceDetails.serviceType",
+      "value": "2"
+    },
+    "changes": [
+      {
+        "op": "update_field",
+        "path": "serviceDetails.groups[*].serviceStartDate",
+        "set": {
+          "required": false
+        }
+      }
+    ]
+  },
+  {
+    "ruleId": "esim_no_delivery_address",
+    "screenId": "screen_2",
+    "trigger": {
+      "path": "serviceDetails.groups[*].simType",
+      "value": "ESIM"
+    },
+    "changes": [
+      {
+        "op": "remove_field",
+        "path": "serviceDetails.groups[*].simDeliveryAddress"
+      }
+    ]
+  },
+  {
+    "ruleId": "passport_issuing_country",
+    "screenId": "screen_3",
+    "trigger": {
+      "path": "customerBilling.basicDetails.idType",
+      "value": "PASSPORT"
+    },
+    "changes": [
+      {
+        "op": "add_field",
+        "field": {
+          "type": "set",
+          "path": "customerBilling.basicDetails.passportIssuingCountry",
+          "fieldLabel": "Passport Issuing Country",
+          "controlType": "dropdown",
+          "dataType": "list",
+          "required": true,
+          "value": "",
+          "origin": "conditional",
+          "values": [
+            {
+              "label": "Oman",
+              "value": "OM"
+            },
+            {
+              "label": "India",
+              "value": "IN"
+            },
+            {
+              "label": "Pakistan",
+              "value": "PK"
+            },
+            {
+              "label": "Egypt",
+              "value": "EG"
+            },
+            {
+              "label": "Philippines",
+              "value": "PH"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "ruleId": "mnp_porting_fields",
+    "screenId": "screen_2",
+    "trigger": {
+      "path": "serviceDetails.groups[*].onboardingType",
+      "value": "MNP"
+    },
+    "changes": [
+      {
+        "op": "add_field",
+        "field": {
+          "type": "set",
+          "path": "serviceDetails.groups[*].donorNetwork",
+          "fieldLabel": "Donor Network",
+          "controlType": "text",
+          "dataType": "text",
+          "required": true,
+          "value": "",
+          "origin": "conditional"
+        }
+      },
+      {
+        "op": "add_field",
+        "field": {
+          "type": "set",
+          "path": "serviceDetails.groups[*].portingAuthCode",
+          "fieldLabel": "Porting Authorization Code",
+          "controlType": "text",
+          "dataType": "text",
+          "required": true,
+          "value": "",
+          "origin": "conditional"
+        }
+      }
+    ]
+  }
+]

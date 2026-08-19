@@ -23,7 +23,8 @@ load_dotenv()
 
 from agent import DATA_DIR, build_agent  # noqa: E402  (must run after load_dotenv)
 from logging_setup import RunLoggingHandler, configure_logging, logger  # noqa: E402
-from models import ChatRequest, ChatResponse  # noqa: E402
+from models import ChatRequest, ChatResponse, ConditionalPreviewRequest, ConditionalPreviewResponse  # noqa: E402
+from preview import apply_conditional_rules  # noqa: E402
 from tools import clear_thread_state, get_draft_fields, get_pending_diffs, reset_drafts_for_screen  # noqa: E402
 
 configure_logging()
@@ -44,13 +45,21 @@ app.add_middleware(
 SEED_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed_data")
 
 _agent = None
+_backend = None
 
 
 def get_agent():
-    global _agent
+    global _agent, _backend
     if _agent is None:
-        _agent, _ = build_agent()
+        _agent, _backend = build_agent()
     return _agent
+
+
+def get_backend():
+    global _agent, _backend
+    if _backend is None:
+        _agent, _backend = build_agent()
+    return _backend
 
 
 # session_id -> True while a write_screen_json interrupt is pending for it
@@ -288,6 +297,20 @@ def chat(body: ChatRequest) -> ChatResponse:
         screen_ids=screen_ids,
         run_id=run_id,
     )
+
+
+@app.post("/preview/field-change", response_model=ConditionalPreviewResponse)
+def preview_field_change(body: ConditionalPreviewRequest) -> ConditionalPreviewResponse:
+    """Conditional Preview Adapter: given a dropdown/radio field change, return
+    a preview of that screen's fields with any matching conditional_rules.json
+    entry applied. Read-only -- never writes screen_N.json. Not part of the
+    admin-chat agent: no LLM call, no confirm/approve step.
+    """
+    try:
+        fields, rule_matched = apply_conditional_rules(get_backend(), body.screen_id, body.path, body.value)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return ConditionalPreviewResponse(screen_id=body.screen_id, fields=fields, rule_matched=rule_matched)
 
 
 @app.get("/admin/screens/{screen_id}")

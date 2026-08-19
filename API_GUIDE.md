@@ -2,8 +2,11 @@
 
 This is a practical, copy-paste guide for testing `POST /admin/chat` and
 wiring up the frontend flow: send a message → show a preview of the pending
-edit → confirm → refresh the screen. Base URL below assumes
-`uvicorn main:app --reload` running on the default port.
+edit → confirm → refresh the screen. It also covers the separate, non-LLM
+**Conditional Preview Adapter** (`POST /preview/field-change`, section 8) that
+the onboarding UI calls whenever the customer changes a dropdown/radio value.
+Base URL below assumes `uvicorn main:app --reload` running on the default
+port.
 
 ```
 http://127.0.0.1:8000
@@ -19,14 +22,15 @@ agent will say so plainly instead of reporting a false success.
 
 ---
 
-## 1. The four endpoints
+## 1. The five endpoints
 
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/admin/chat` | Send an admin message, get back a reply + status |
-| GET | `/admin/screens/{screen_id}` | Read a screen — live, or a preview of a pending edit |
-| POST | `/admin/screens/{screen_id}/reset` | Reset one screen to its seed state (testing only) |
-| POST | `/admin/screens/reset` | Reset every screen to its seed state (testing only) |
+| GET | `/admin/screens/{screen_id}` | Read a screen — live (with any matching conditional rule already baked in), or a preview of a pending admin-chat edit |
+| POST | `/preview/field-change` | UI calls this on every dropdown/radio change; returns that screen's fields with any matching rule applied, no LLM, no write (see section 8) |
+| POST | `/admin/screens/{screen_id}/reset` | Reset one screen to its seed state and clear its recorded live selections (testing only) |
+| POST | `/admin/screens/reset` | Reset every screen the same way (testing only) |
 
 ---
 
@@ -237,7 +241,10 @@ curl -X POST http://127.0.0.1:8000/admin/screens/reset
 ```
 
 These are direct, ungated resets (no confirm step) meant for testing only —
-not part of the admin-facing chat flow.
+not part of the admin-facing chat flow. They also clear any live selection
+recorded via `/preview/field-change` that originated from that screen (see
+section 8) — e.g. resetting screen_2 forgets a recorded Prepaid/Postpaid
+choice, so screen_3's billing fields go back to their default.
 
 ---
 
@@ -269,3 +276,97 @@ curl -s "$BASE/admin/screens/screen_1"
 # 4. Clean up
 curl -s -X POST $BASE/admin/screens/screen_1/reset
 ```
+
+---
+
+## 8. The Conditional Preview Adapter — `POST /preview/field-change`
+
+This is a **completely separate feature from `/admin/chat`**: no LLM call, no
+confirm/reject step, nothing ever written to disk. It's a plain lookup
+against `data/conditional_rules.json`, built to feel instant for the
+onboarding UI. Call it every time the customer changes a dropdown or radio
+value:
+
+```bash
+curl -X POST http://127.0.0.1:8000/preview/field-change \
+  -H "Content-Type: application/json" \
+  -d '{"screen_id": "screen_1", "path": "connectionInfo.subCategory", "value": "211"}'
+```
+
+### Response shape
+
+```json
+{
+  "screen_id": "screen_1",
+  "fields": [ "...that screen's full fields[] list, with any matching rule's changes applied..." ],
+  "rule_matched": "student_id_upload"
+}
+```
+
+If nothing in `conditional_rules.json` matches `(screen_id, path, value)`,
+`rule_matched` is `null` and `fields` comes back unchanged — that's the
+default state (e.g. picking "Salaried" instead of "Student" fires nothing).
+
+### It also drives what other screens show — no extra endpoint needed
+
+Some rules change fields on a **different** screen than the one that fired
+them. For example: picking **Prepaid** for Connection Type on screen_2
+removes 4 billing fields from **screen_3** (Billing Account Name, Billing
+Address, Billing Email, Billing Contact Number); picking Postpaid keeps them.
+
+The mechanism: every call to `/preview/field-change` records
+`(screen_id, path) -> value` as "the last thing the UI reported for this
+field." `GET /admin/screens/{screen_id}` reads that same record to decide
+what to show — so the UI doesn't need to do anything extra for this to work;
+just keep calling `/preview/field-change` the way it already does, and later
+`GET` calls for any affected screen pick it up automatically:
+
+```bash
+BASE=http://127.0.0.1:8000
+
+# Baseline: screen_2 defaults to Postpaid, so screen_3 has all 14 fields
+curl -s "$BASE/admin/screens/screen_3" | python3 -c "import json,sys; print(len(json.load(sys.stdin)[0]['fields']))"
+# -> 14
+
+# Customer picks Prepaid on screen_2 -- the ONLY call the UI makes for this
+curl -s -X POST $BASE/preview/field-change -H "Content-Type: application/json" \
+  -d '{"screen_id":"screen_2","path":"serviceDetails.connectionType","value":"2"}'
+# -> screen_2's own fields, rule_matched: null (the rule's changes target screen_3, not screen_2)
+
+# Customer navigates to screen_3 -- plain GET, nothing else
+curl -s "$BASE/admin/screens/screen_3" | python3 -c "import json,sys; print(len(json.load(sys.stdin)[0]['fields']))"
+# -> 10 (all 4 billing fields gone)
+```
+
+If a trigger field has never been reported via `/preview/field-change` (e.g.
+right after a server restart), `GET` falls back to that field's on-disk
+default value — which is why the baseline above already reflects Postpaid
+without any prior call.
+
+**Important — this state is in-memory only**, the same way admin-chat's
+staged drafts are: it resets on server restart, and `/admin/screens/{screen_id}/reset`
+/ `/admin/screens/reset` clear it explicitly (see section 6). It is never
+written to `screen_N.json`.
+
+### Same-screen rules are baked into GET too
+
+The same mechanism applies even when a rule's trigger and target are the
+*same* screen — e.g. screen_1's Student ID Upload field. Since screen_1's
+`subCategory` already defaults to "Student" (`211`) in the seed data, it
+shows up on a plain `GET` with no preview call at all:
+
+```bash
+curl -s "$BASE/admin/screens/screen_1" | python3 -c "import json,sys; print(len(json.load(sys.stdin)[0]['fields']))"
+# -> 7 (includes Student ID Card Upload)
+```
+
+### All six seeded rules (`data/conditional_rules.json`)
+
+| `ruleId` | Trigger | Effect |
+|---|---|---|
+| `student_id_upload` | screen_1 Sub Category = Student (`211`) | adds Student ID Card Upload to screen_1 |
+| `prepaid_no_billing_info` | screen_2 Connection Type = Prepaid (`2`) | removes 4 billing fields from **screen_3** (cross-screen) |
+| `ftth_start_date_optional` | screen_2 Service Type = FTTH (`2`) | makes Service Start Date optional on screen_2 |
+| `esim_no_delivery_address` | screen_2 SIM Type = eSIM | removes the SIM delivery address field from screen_2 |
+| `passport_issuing_country` | screen_3 ID Type = Passport | adds Passport Issuing Country to screen_3 |
+| `mnp_porting_fields` | screen_2 Onboarding Type = MNP | adds Donor Network + Porting Authorization Code to screen_2 |

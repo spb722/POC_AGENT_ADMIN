@@ -79,6 +79,14 @@ Hard rules:
   restate it as the exact literal value to store (e.g. an actual date string
   or whatever format the field already uses), then call set_default_value
   with that literal.
+- When the admin asks to add a new dropdown or radio field AND names its
+  options in the same message (e.g. "add a Credit Check Required radio with
+  options Yes and No"), pass ALL of those options via add_field's `options`
+  attribute in that single call -- do not create the field first and plan to
+  add options with separate add_option calls afterward. A later step in a
+  longer response is a step you can forget; one call that creates the field
+  complete with its options cannot be half-finished. Only use add_option when
+  adding an option to a field that already exists.
 
 Fields can carry an optional visibility condition (`show_when`) meaning "only
 show this field when another field has a given value". Operators: eq, ne, lt,

@@ -133,7 +133,7 @@ def _screen_summary(backend: FilesystemBackend, screen_id: str) -> str:
 # agent report a false "no change needed" or a no-op success instead of
 # telling the admin the edit isn't possible. See _unsupported_edit_fields.
 _ALLOWED_EDIT_FIELDS: dict[str, set[str]] = {
-    "add_field": {"field_label", "control_type", "data_type", "required", "default_value", "origin", "show_when"},
+    "add_field": {"field_label", "control_type", "data_type", "required", "default_value", "origin", "show_when", "options"},
     "delete_field": set(),
     "rename_field": {"field_label"},
     "add_option": {"option_value", "option_label"},
@@ -145,7 +145,7 @@ _ALLOWED_EDIT_FIELDS: dict[str, set[str]] = {
 }
 _EDIT_ATTR_NAMES = [
     "field_label", "control_type", "data_type", "required", "default_value",
-    "option_value", "option_label", "new_option_value", "origin", "show_when",
+    "option_value", "option_label", "new_option_value", "origin", "show_when", "options",
 ]
 
 
@@ -311,12 +311,14 @@ def build_tools(backend: FilesystemBackend, model) -> list:
     def apply_field_edit(screen_id: str, edit: FieldEdit, config: RunnableConfig) -> str:
         """Apply one field edit to the in-memory draft (never touches disk).
 
-        Supports add_field, delete_field, rename_field (fieldLabel only -- path
+        Supports add_field (optionally with its full values[] passed via the
+        `options` attribute, for dropdown/radio fields whose options are
+        already known), delete_field, rename_field (fieldLabel only -- path
         never changes), set_default_value (the field's stored 'value'),
-        add_option/rename_option/remove_option on a dropdown/radio field's
-        values[], and set_show_when/clear_show_when (a field's `showWhen`
-        visibility condition). Returns a before/after diff for just the field
-        touched.
+        add_option/rename_option/remove_option on an existing dropdown/radio
+        field's values[], and set_show_when/clear_show_when (a field's
+        `showWhen` visibility condition). Returns a before/after diff for
+        just the field touched.
         """
         unsupported = _unsupported_edit_fields(edit)
         if unsupported:
@@ -352,7 +354,7 @@ def build_tools(backend: FilesystemBackend, model) -> list:
                 "origin": edit.origin or "admin_added",
             }
             if control_type in ("dropdown", "radio"):
-                new_field["values"] = []
+                new_field["values"] = [{"label": o.label, "value": o.value} for o in edit.options] if edit.options else []
             if edit.show_when is not None:
                 new_field["showWhen"] = _show_when_json(edit.show_when)
             fields.append(new_field)

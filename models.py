@@ -57,6 +57,15 @@ class ShowWhen(BaseModel):
     )
 
 
+class Option(BaseModel):
+    """One values[] entry, for creating a dropdown/radio field's options
+    up front on add_field -- see FieldEdit.options.
+    """
+
+    label: str
+    value: str
+
+
 EditOp = Literal[
     "add_field",
     "delete_field",
@@ -101,6 +110,17 @@ class FieldEdit(BaseModel):
     show_when: ShowWhen | None = Field(
         default=None,
         description="Visibility condition. Used by add_field (initial condition) and set_show_when (replaces it). Ignored by clear_show_when.",
+    )
+    options: list[Option] | None = Field(
+        default=None,
+        description=(
+            "add_field only: the full initial values[] for a dropdown/radio field, e.g. "
+            "[{'label': 'Yes', 'value': 'YES'}, {'label': 'No', 'value': 'NO'}]. Prefer "
+            "this over separate add_option calls whenever the options are already known "
+            "at creation time -- it creates the field with its options in one call "
+            "instead of relying on follow-up add_option calls. Use add_option only to "
+            "add an option to a field that already exists."
+        ),
     )
 
     # add_option / rename_option / remove_option (values[] entries)

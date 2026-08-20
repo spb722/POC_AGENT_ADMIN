@@ -201,6 +201,10 @@ def _describe_diff_friendly(d: dict, session_id: str | None) -> str:
 
     if op == "add_field":
         sentence = f"Added a new field, '{after.get('fieldLabel')}', on {screen}."
+        options = after.get("values") or []
+        if options:
+            labels = ", ".join(o["label"] for o in options)
+            sentence += f" Options: {labels}."
         show_when = after.get("showWhen")
         if show_when:
             sentence += f" It's shown when {_describe_show_when(show_when, screen_id, session_id)}."

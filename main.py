@@ -16,7 +16,7 @@ import uuid
 from typing import Literal
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from langgraph.types import Command
 
@@ -396,7 +396,14 @@ def chat(body: ChatRequest) -> ChatResponse:
 
 
 @app.post("/preview/field-change", response_model=ConditionalPreviewResponse)
-def preview_field_change(body: ConditionalPreviewRequest) -> ConditionalPreviewResponse:
+def preview_field_change(
+    body: ConditionalPreviewRequest,
+    user_id: str | None = Header(
+        default=None,
+        alias="userID",
+        description="Mock customer id used to select a configured credit score.",
+    ),
+) -> ConditionalPreviewResponse:
     """Conditional Preview Adapter: given a dropdown/radio field change, return
     a preview of that screen's fields with any matching conditional_rules.json
     entry applied. Read-only -- never writes screen_N.json. Not part of the
@@ -404,7 +411,7 @@ def preview_field_change(body: ConditionalPreviewRequest) -> ConditionalPreviewR
     """
     try:
         fields, rule_matched = apply_conditional_rules(
-            get_backend(), body.screen_id, body.path, body.value, body.session_id
+            get_backend(), body.screen_id, body.path, body.value, body.session_id, user_id
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e

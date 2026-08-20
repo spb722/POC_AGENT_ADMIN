@@ -1,4 +1,8 @@
 {
   "min_score": 501,
-  "max_score": 900
+  "max_score": 900,
+  "user_scores": {
+    "3": 400,
+    "4": 600
+  }
 }

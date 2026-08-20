@@ -281,6 +281,15 @@ curl -s -X POST $BASE/admin/screens/screen_1/reset
 
 ## 8. The Conditional Preview Adapter — `POST /preview/field-change`
 
+For deterministic credit-check testing, send the optional `userID` header:
+
+- `userID: 3` uses credit score `400` and returns the low-score Deposit Amount branch.
+- `userID: 4` uses credit score `600` and returns the high-score bank-fields branch.
+- Missing or unconfigured user ids fall back to the range in `data/credit_score_mock.json`.
+
+The header only affects the mock score generated when Credit Check Required is
+`YES`; all conditional state remains isolated by the payload's `session_id`.
+
 This is a **completely separate feature from `/admin/chat`**: no LLM call, no
 confirm/reject step, nothing ever written to disk. It's a plain lookup
 against `data/conditional_rules.json`, built to feel instant for the

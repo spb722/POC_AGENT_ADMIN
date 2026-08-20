@@ -154,13 +154,17 @@ def filter_visible(
     ]
 
 
-def _mock_credit_score(backend: FilesystemBackend) -> str:
-    """Stand-in for the real credit-score API. The min/max range lives in
-    credit_score_mock.json so it can be tuned without a code change -- e.g.
-    narrow it to always land under 500 to demo the deposit-amount branch on
-    demand.
+def _mock_credit_score(backend: FilesystemBackend, user_id: str | None) -> str:
+    """Stand-in for the real credit-score API.
+
+    A user-specific fixed score in credit_score_mock.json wins when present;
+    otherwise the existing min/max range supplies a backwards-compatible
+    default for callers that omit userID or send an unconfigured id.
     """
     config = _read_json(backend, CREDIT_SCORE_MOCK_CONFIG_PATH)
+    configured_score = config.get("user_scores", {}).get(user_id)
+    if configured_score is not None:
+        return str(configured_score)
     return str(random.randint(config["min_score"], config["max_score"]))
 
 
@@ -170,14 +174,16 @@ def _maybe_run_mock_credit_check(
     path: str,
     value: str,
     session_id: str | None,
+    user_id: str | None,
 ) -> None:
     if screen_id != CREDIT_CHECK_SCREEN_ID or path != CREDIT_CHECK_TRIGGER_PATH or value != CREDIT_CHECK_TRIGGER_VALUE:
         return
-    score = _mock_credit_score(backend)
+    score = _mock_credit_score(backend, user_id)
     record_field_change(CREDIT_CHECK_SCREEN_ID, CREDIT_SCORE_PATH, score, session_id)
     logger.info(
-        "MOCK_CREDIT_CHECK session=%s screen_id=%s score=%s",
+        "MOCK_CREDIT_CHECK session=%s user_id=%s screen_id=%s score=%s",
         _session_key(session_id),
+        user_id,
         CREDIT_CHECK_SCREEN_ID,
         score,
     )
@@ -233,6 +239,7 @@ def apply_conditional_rules(
     path: str,
     value: str,
     session_id: str | None = None,
+    user_id: str | None = None,
 ) -> tuple[list[dict[str, Any]], str | None]:
     """Look up a matching conditional rule for (screen_id, path, value) and
     return a preview copy of that screen's fields with the rule's changes
@@ -250,7 +257,9 @@ def apply_conditional_rules(
     call -- see _maybe_run_mock_credit_check.
     """
     record_field_change(screen_id, path, value, session_id)
-    _maybe_run_mock_credit_check(backend, screen_id, path, value, session_id)
+    _maybe_run_mock_credit_check(
+        backend, screen_id, path, value, session_id, user_id
+    )
     _discard_hidden_values(backend, session_id)
 
     rules = _read_json(backend, RULES_PATH)

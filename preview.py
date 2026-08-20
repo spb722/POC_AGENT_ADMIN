@@ -20,11 +20,25 @@ and no admin-chat involvement.
 
 import copy
 import json
+import random
 from typing import Any
 
 from deepagents.backends import FilesystemBackend
 
+from logging_setup import logger
+
 RULES_PATH = "/conditional_rules.json"
+CREDIT_SCORE_MOCK_CONFIG_PATH = "/credit_score_mock.json"
+
+# The one hardcoded trigger for this POC's credit-check demo: when the
+# customer answers Yes to Credit Check Required on screen_2, stand in for
+# the real credit-score API (n8n's job in production) and record a score
+# back in the same request -- so the low/high-score branch shows up
+# immediately instead of needing a second POST to simulate n8n.
+CREDIT_CHECK_SCREEN_ID = "screen_2"
+CREDIT_CHECK_TRIGGER_PATH = "serviceDetails.creditCheckRequired"
+CREDIT_CHECK_TRIGGER_VALUE = "YES"
+CREDIT_SCORE_PATH = "serviceDetails.creditScore"
 
 # (screen_id, path) -> the last value the UI reported via apply_conditional_rules.
 # In-memory only, POC-style single shared state (no per-customer sessions),
@@ -78,6 +92,57 @@ def _apply_change(fields: list[dict[str, Any]], change: dict[str, Any]) -> None:
             field.update(change["set"])
 
 
+def _evaluate(cond: dict[str, Any], default_screen_id: str) -> bool:
+    """True if this showWhen condition currently holds.
+
+    Looks up `_current_trigger_values` directly -- NOT via the on-disk-default
+    fallback that rule triggers use (see resolve_screen_fields's
+    _current_trigger_value). An unanswered trigger must mean hidden: a blank
+    creditScore must not accidentally satisfy `lt "500"` just because that's
+    the field's stored default.
+    """
+    screen_id = cond.get("screenId", default_screen_id)
+    actual = _current_trigger_values.get((screen_id, cond["path"]))
+    if actual is None:
+        return False
+
+    op = cond["op"]
+    if op == "eq":
+        return actual == cond["value"]
+    if op == "ne":
+        return actual != cond["value"]
+    if op in ("lt", "gte"):
+        try:
+            a, b = float(actual), float(cond["value"])
+        except (TypeError, ValueError):
+            return False
+        return a < b if op == "lt" else a >= b
+    return True
+
+
+def filter_visible(fields: list[dict[str, Any]], screen_id: str) -> list[dict[str, Any]]:
+    """Drop every field whose showWhen does not currently hold."""
+    return [f for f in fields if "showWhen" not in f or _evaluate(f["showWhen"], screen_id)]
+
+
+def _mock_credit_score(backend: FilesystemBackend) -> str:
+    """Stand-in for the real credit-score API. The min/max range lives in
+    credit_score_mock.json so it can be tuned without a code change -- e.g.
+    narrow it to always land under 500 to demo the deposit-amount branch on
+    demand.
+    """
+    config = _read_json(backend, CREDIT_SCORE_MOCK_CONFIG_PATH)
+    return str(random.randint(config["min_score"], config["max_score"]))
+
+
+def _maybe_run_mock_credit_check(backend: FilesystemBackend, screen_id: str, path: str, value: str) -> None:
+    if screen_id != CREDIT_CHECK_SCREEN_ID or path != CREDIT_CHECK_TRIGGER_PATH or value != CREDIT_CHECK_TRIGGER_VALUE:
+        return
+    score = _mock_credit_score(backend)
+    record_field_change(CREDIT_CHECK_SCREEN_ID, CREDIT_SCORE_PATH, score)
+    logger.info("MOCK_CREDIT_CHECK screen_id=%s score=%s", CREDIT_CHECK_SCREEN_ID, score)
+
+
 def apply_conditional_rules(
     backend: FilesystemBackend, screen_id: str, path: str, value: str
 ) -> tuple[list[dict[str, Any]], str | None]:
@@ -88,9 +153,13 @@ def apply_conditional_rules(
     Read-only: never writes screen_id's file, and the returned fields are a
     deep copy so the caller can't accidentally mutate the on-disk screen. As
     a side effect, records (screen_id, path) -> value as the live trigger
-    state other screens' resolve_screen_fields calls will read.
+    state other screens' resolve_screen_fields calls will read. If this
+    particular change is "Credit Check Required = Yes", also runs the mock
+    credit-score check and records its result the same way, in the same
+    call -- see _maybe_run_mock_credit_check.
     """
     record_field_change(screen_id, path, value)
+    _maybe_run_mock_credit_check(backend, screen_id, path, value)
 
     screen = _read_json(backend, f"/{screen_id}.json")[0]
     rules = _read_json(backend, RULES_PATH)
@@ -108,13 +177,13 @@ def apply_conditional_rules(
     )
 
     fields = copy.deepcopy(screen["fields"])
-    if rule is None:
-        return fields, None
+    rule_id = None
+    if rule is not None:
+        for change in rule["changes"]:
+            _apply_change(fields, change)
+        rule_id = rule["ruleId"]
 
-    for change in rule["changes"]:
-        _apply_change(fields, change)
-
-    return fields, rule["ruleId"]
+    return filter_visible(fields, screen_id), rule_id
 
 
 def resolve_screen_fields(

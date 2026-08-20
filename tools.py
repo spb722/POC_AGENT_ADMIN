@@ -27,7 +27,7 @@ from langchain_core.tools import tool
 
 from deepagents.backends import FilesystemBackend
 
-from models import FieldCandidate, FieldEdit, FieldMatch, ScreenClassification
+from models import FieldCandidate, FieldEdit, FieldMatch, ScreenClassification, ShowWhen
 
 # (thread_id, screen_id) -> mutable draft of the `fields` array
 _drafts: dict[tuple[str, str], list[dict[str, Any]]] = {}
@@ -103,6 +103,13 @@ def _find_option(field: dict[str, Any], option_value: str) -> dict[str, Any] | N
     return next((o for o in field.get("values", []) or [] if o.get("value") == option_value), None)
 
 
+def _show_when_json(sw: ShowWhen) -> dict[str, Any]:
+    out: dict[str, Any] = {"path": sw.path, "op": sw.op, "value": sw.value}
+    if sw.screen_id:
+        out["screenId"] = sw.screen_id
+    return out
+
+
 def _screen_summary(backend: FilesystemBackend, screen_id: str) -> str:
     """One line describing what's actually on a screen, built from its live
     fieldLabels -- not a hardcoded description, so it can never drift out of
@@ -126,17 +133,19 @@ def _screen_summary(backend: FilesystemBackend, screen_id: str) -> str:
 # agent report a false "no change needed" or a no-op success instead of
 # telling the admin the edit isn't possible. See _unsupported_edit_fields.
 _ALLOWED_EDIT_FIELDS: dict[str, set[str]] = {
-    "add_field": {"field_label", "control_type", "data_type", "required", "default_value"},
+    "add_field": {"field_label", "control_type", "data_type", "required", "default_value", "origin", "show_when"},
     "delete_field": set(),
     "rename_field": {"field_label"},
     "add_option": {"option_value", "option_label"},
     "rename_option": {"option_value", "option_label", "new_option_value"},
     "remove_option": {"option_value"},
     "set_default_value": {"default_value"},
+    "set_show_when": {"show_when"},
+    "clear_show_when": set(),
 }
 _EDIT_ATTR_NAMES = [
     "field_label", "control_type", "data_type", "required", "default_value",
-    "option_value", "option_label", "new_option_value",
+    "option_value", "option_label", "new_option_value", "origin", "show_when",
 ]
 
 
@@ -285,6 +294,13 @@ def build_tools(backend: FilesystemBackend, model) -> list:
             else:  # remove_option
                 noop = existing is None
                 reason = "option already absent" if noop else "option exists and would be removed"
+        elif edit.op == "set_show_when":
+            target = _show_when_json(edit.show_when) if edit.show_when else None
+            noop = field.get("showWhen") == target
+            reason = "condition already matches" if noop else "condition differs"
+        elif edit.op == "clear_show_when":
+            noop = "showWhen" not in field
+            reason = "field is already unconditional" if noop else "field has a condition"
         else:
             noop = False
             reason = "unrecognized op"
@@ -296,9 +312,11 @@ def build_tools(backend: FilesystemBackend, model) -> list:
         """Apply one field edit to the in-memory draft (never touches disk).
 
         Supports add_field, delete_field, rename_field (fieldLabel only -- path
-        never changes), set_default_value (the field's stored 'value'), and
+        never changes), set_default_value (the field's stored 'value'),
         add_option/rename_option/remove_option on a dropdown/radio field's
-        values[]. Returns a before/after diff for just the field touched.
+        values[], and set_show_when/clear_show_when (a field's `showWhen`
+        visibility condition). Returns a before/after diff for just the field
+        touched.
         """
         unsupported = _unsupported_edit_fields(edit)
         if unsupported:
@@ -331,10 +349,12 @@ def build_tools(backend: FilesystemBackend, model) -> list:
                 "dataType": edit.data_type or ("list" if control_type in ("dropdown", "radio") else "text"),
                 "required": bool(edit.required) if edit.required is not None else False,
                 "value": edit.default_value or "",
-                "origin": "admin_added",
+                "origin": edit.origin or "admin_added",
             }
             if control_type in ("dropdown", "radio"):
                 new_field["values"] = []
+            if edit.show_when is not None:
+                new_field["showWhen"] = _show_when_json(edit.show_when)
             fields.append(new_field)
             after: dict[str, Any] | None = new_field
 
@@ -375,6 +395,14 @@ def build_tools(backend: FilesystemBackend, model) -> list:
                 if existing is None:
                     return json.dumps({"error": f"no option {edit.option_value} to remove"})
                 values.remove(existing)
+            after = field
+        elif edit.op == "set_show_when":
+            if edit.show_when is None:
+                return json.dumps({"error": "set_show_when requires show_when"})
+            field["showWhen"] = _show_when_json(edit.show_when)
+            after = field
+        elif edit.op == "clear_show_when":
+            field.pop("showWhen", None)
             after = field
         else:
             return json.dumps({"error": f"unrecognized op {edit.op}"})

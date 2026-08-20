@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 import uuid
+from typing import Literal
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -24,7 +25,7 @@ load_dotenv()
 from agent import DATA_DIR, build_agent  # noqa: E402  (must run after load_dotenv)
 from logging_setup import RunLoggingHandler, configure_logging, logger  # noqa: E402
 from models import ChatRequest, ChatResponse, ConditionalPreviewRequest, ConditionalPreviewResponse  # noqa: E402
-from preview import apply_conditional_rules, clear_recorded_values, resolve_screen_fields  # noqa: E402
+from preview import apply_conditional_rules, clear_recorded_values, filter_visible, resolve_screen_fields  # noqa: E402
 from tools import clear_thread_state, get_draft_fields, get_pending_diffs, reset_drafts_for_screen  # noqa: E402
 
 configure_logging()
@@ -72,11 +73,16 @@ NEGATIVE = {"n", "no", "nope", "cancel", "cancelled", "reject", "rejected", "sto
 
 
 def classify_decision(message: str) -> str:
-    words = set(re.findall(r"[a-z']+", message.lower()))
-    if words & NEGATIVE:
-        return "reject"
-    if words & AFFIRMATIVE:
-        return "approve"
+    # Only treat a short reply as a bare approve/reject -- a longer message is
+    # feedback ("no, call it something else", "no, make it 600"), not a flat
+    # rejection, even though it contains a negative word.
+    tokens = re.findall(r"[a-z']+", message.lower())
+    if len(tokens) <= 3:
+        words = set(tokens)
+        if words & NEGATIVE:
+            return "reject"
+        if words & AFFIRMATIVE:
+            return "approve"
     return "respond"
 
 
@@ -101,6 +107,19 @@ def _screen_display(screen_id: str) -> str:
     if parts[0] == "screen" and parts[-1].isdigit():
         return f"Screen {parts[-1]}"
     return screen_id
+
+
+def _strip_for_customer(fields: list[dict]) -> list[dict]:
+    """Drop origin=='api' fields (externally-written, never customer input)
+    and strip the `showWhen` key (build-time metadata) from the rest. Never
+    mutates the input -- returns fresh copies.
+    """
+    out = []
+    for f in fields:
+        if f.get("origin") == "api":
+            continue
+        out.append({k: v for k, v in f.items() if k != "showWhen"})
+    return out
 
 
 def _option_change(before: dict, after: dict) -> tuple[str | None, str | None]:
@@ -131,12 +150,61 @@ def _option_change(before: dict, after: dict) -> tuple[str | None, str | None]:
     return None, None
 
 
-def _describe_diff_friendly(d: dict) -> str:
-    screen = _screen_display(d["screen_id"])
+def _screen_fields_for_display(screen_id: str, session_id: str | None) -> list[dict]:
+    """Best-effort fields lookup for rendering a showWhen's referenced field
+    as a label -- prefers a session's live draft, else reads on-disk directly.
+    Deliberately not resolve_screen_fields: this is a cosmetic label lookup
+    for a chat reply and shouldn't trigger conditional-rule computation as a
+    side effect.
+    """
+    fields = get_draft_fields(session_id, screen_id) if session_id else None
+    if fields is not None:
+        return fields
+    path = os.path.join(DATA_DIR, f"{screen_id}.json")
+    try:
+        with open(path) as f:
+            return json.load(f)[0]["fields"]
+    except (OSError, IndexError, KeyError):
+        return []
+
+
+def _describe_show_when(sw: dict, screen_id: str, session_id: str | None) -> str:
+    target_screen_id = sw.get("screenId", screen_id)
+    fields = _screen_fields_for_display(target_screen_id, session_id)
+    target_field = next((f for f in fields if f.get("path") == sw["path"]), None)
+    label = target_field.get("fieldLabel") if target_field else sw["path"]
+
+    value_display = sw["value"]
+    if target_field:
+        option = next(
+            (o for o in target_field.get("values", []) or [] if o.get("value") == sw["value"]), None
+        )
+        if option:
+            value_display = option.get("label", value_display)
+
+    op = sw["op"]
+    if op == "eq":
+        return f"{label} is {value_display}"
+    if op == "ne":
+        return f"{label} is not {value_display}"
+    if op == "lt":
+        return f"{label} is less than {value_display}"
+    if op == "gte":
+        return f"{label} is {value_display} or above"
+    return f"{label} {op} {value_display}"
+
+
+def _describe_diff_friendly(d: dict, session_id: str | None) -> str:
+    screen_id = d["screen_id"]
+    screen = _screen_display(screen_id)
     op, before, after = d["op"], d.get("before"), d.get("after")
 
     if op == "add_field":
-        return f"Added a new field, '{after.get('fieldLabel')}', on {screen}."
+        sentence = f"Added a new field, '{after.get('fieldLabel')}', on {screen}."
+        show_when = after.get("showWhen")
+        if show_when:
+            sentence += f" It's shown when {_describe_show_when(show_when, screen_id, session_id)}."
+        return sentence
     if op == "delete_field":
         return f"Removed the '{before.get('fieldLabel')}' field from {screen}."
     if op == "rename_field":
@@ -155,11 +223,18 @@ def _describe_diff_friendly(d: dict) -> str:
         if old_label and new_label and old_label != new_label:
             return f"Renamed the '{old_label}' option to '{new_label}' on {field_label} ({screen})."
         return f"Updated an option on {field_label} ({screen})."
+    if op == "set_show_when":
+        field_label = after.get("fieldLabel")
+        condition = _describe_show_when(after["showWhen"], screen_id, session_id)
+        return f"'{field_label}' on {screen} will now only show when {condition}."
+    if op == "clear_show_when":
+        field_label = after.get("fieldLabel")
+        return f"'{field_label}' on {screen} will now always show (visibility condition removed)."
     return f"Updated {screen}."
 
 
-def _join_diffs(diffs: list[dict]) -> str:
-    sentences = [_describe_diff_friendly(d) for d in diffs]
+def _join_diffs(diffs: list[dict], session_id: str | None) -> str:
+    sentences = [_describe_diff_friendly(d, session_id) for d in diffs]
     if not sentences:
         return ""
     if len(sentences) == 1:
@@ -167,32 +242,32 @@ def _join_diffs(diffs: list[dict]) -> str:
     return "\n".join(f"- {s}" for s in sentences)
 
 
-def _render_pending_reply(diffs: list[dict]) -> str:
-    body = _join_diffs(diffs) or "There's nothing staged to confirm."
+def _render_pending_reply(diffs: list[dict], session_id: str | None) -> str:
+    body = _join_diffs(diffs, session_id) or "There's nothing staged to confirm."
     lead = "Here's what I'm about to update — please confirm:" if len(diffs) > 1 else ""
     cta = "Reply to confirm, or tell me what you'd like to change instead."
     return "\n\n".join(p for p in (lead, body, cta) if p)
 
 
-def _render_written_reply(diffs: list[dict]) -> str:
+def _render_written_reply(diffs: list[dict], session_id: str | None) -> str:
     if not diffs:
         return "Done — no changes were necessary."
-    body = _join_diffs(diffs)
+    body = _join_diffs(diffs, session_id)
     if len(diffs) == 1:
         return f"Done — {body}"
     return f"All set — I've made the following updates:\n\n{body}"
 
 
-def _render_rejected_reply(diffs: list[dict]) -> str:
+def _render_rejected_reply(diffs: list[dict], session_id: str | None) -> str:
     if not diffs:
         return "No problem — nothing was changed."
-    body = _join_diffs(diffs)
+    body = _join_diffs(diffs, session_id)
     if len(diffs) == 1:
         return f"No problem — I discarded that change ({body}). Nothing was written to disk."
     return f"No problem — I've discarded the following and nothing was written to disk:\n\n{body}"
 
 
-def _screen_view(screen_id: str, session_id: str | None = None) -> list | None:
+def _screen_view(screen_id: str, session_id: str | None = None, audience: str = "admin") -> list | None:
     """Full screen content (the same one-element-list shape as the seed
     files). If `session_id` has a staged (not yet confirmed) admin-chat draft
     for this screen, that draft's fields are shown as-is. Otherwise, any
@@ -200,6 +275,12 @@ def _screen_view(screen_id: str, session_id: str | None = None) -> list | None:
     cross-screen, e.g. screen_2's connectionType affecting screen_3's billing
     fields) are baked in on top of the on-disk fields. None if the screen
     file doesn't exist on disk.
+
+    `audience=="customer"` additionally drops any field whose `showWhen`
+    doesn't currently hold. `audience=="admin"` (the default) shows every
+    field regardless of showWhen state, so an admin can see/manage a
+    condition right after creating it without first simulating a customer's
+    choices via /preview/field-change.
     """
     path = os.path.join(DATA_DIR, f"{screen_id}.json")
     if not os.path.isfile(path):
@@ -209,9 +290,13 @@ def _screen_view(screen_id: str, session_id: str | None = None) -> list | None:
     if session_id:
         draft_fields = get_draft_fields(session_id, screen_id)
         if draft_fields is not None:
+            if audience == "customer":
+                draft_fields = filter_visible(draft_fields, screen_id)
             screen[0]["fields"] = draft_fields
             return screen
     fields, _ = resolve_screen_fields(get_backend(), screen_id)
+    if audience == "customer":
+        fields = filter_visible(fields, screen_id)
     screen[0]["fields"] = fields
     return screen
 
@@ -259,7 +344,7 @@ def chat(body: ChatRequest) -> ChatResponse:
         diffs = get_pending_diffs(session_id)
         screen_ids = sorted({d["screen_id"] for d in diffs})
         preview_screens = {sid: _screen_view(sid, session_id) for sid in screen_ids}
-        reply = _render_pending_reply(diffs)
+        reply = _render_pending_reply(diffs, session_id)
         logger.info("run=%s session=%s CHAT_END status=pending_confirmation pending_actions=%d", run_id, session_id, len(action_requests))
         return ChatResponse(
             reply=reply,
@@ -277,12 +362,12 @@ def chat(body: ChatRequest) -> ChatResponse:
         if decision_type == "approve":
             status = "ok"
             screen_ids = sorted({d["screen_id"] for d in diffs_at_resume})
-            reply = _render_written_reply(diffs_at_resume)
+            reply = _render_written_reply(diffs_at_resume, session_id)
             clear_thread_state(session_id)
         elif decision_type == "reject":
             status = "rejected"
             screen_ids = []
-            reply = _render_rejected_reply(diffs_at_resume)
+            reply = _render_rejected_reply(diffs_at_resume, session_id)
             clear_thread_state(session_id)
         else:  # respond: agent gave a clarifying follow-up instead of re-proposing a write
             status = "info"
@@ -317,19 +402,28 @@ def preview_field_change(body: ConditionalPreviewRequest) -> ConditionalPreviewR
         fields, rule_matched = apply_conditional_rules(get_backend(), body.screen_id, body.path, body.value)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    fields = _strip_for_customer(fields)
     return ConditionalPreviewResponse(screen_id=body.screen_id, fields=fields, rule_matched=rule_matched)
 
 
 @app.get("/admin/screens/{screen_id}")
-def get_screen(screen_id: str, session_id: str | None = None):
+def get_screen(screen_id: str, session_id: str | None = None, audience: Literal["admin", "customer"] = "admin"):
     """Returns the screen as-is from disk, unless `session_id` is given and
     that session has a staged (not yet confirmed) draft for this screen --
     in which case the draft's fields are shown instead, so a pending edit
     can be previewed before the admin confirms it.
+
+    `audience=customer` drops any field whose `showWhen` doesn't currently
+    hold, strips `showWhen` metadata from the rest, and drops origin=='api'
+    fields -- the shape a customer-facing UI should see. `audience=admin`
+    (the default) shows every field, met condition or not, so the admin can
+    verify/manage a condition right after creating it.
     """
-    screen = _screen_view(screen_id, session_id)
+    screen = _screen_view(screen_id, session_id, audience)
     if screen is None:
         raise HTTPException(status_code=404, detail=f"unknown screen '{screen_id}'")
+    if audience == "customer":
+        screen[0]["fields"] = _strip_for_customer(screen[0]["fields"])
     return screen
 
 

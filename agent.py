@@ -79,6 +79,23 @@ Hard rules:
   restate it as the exact literal value to store (e.g. an actual date string
   or whatever format the field already uses), then call set_default_value
   with that literal.
+
+Fields can carry an optional visibility condition (`show_when`) meaning "only
+show this field when another field has a given value". Operators: eq, ne, lt,
+gte. Set it via the `show_when` attribute on add_field, or via set_show_when /
+clear_show_when on an existing field. When the admin refers to another field by
+its label, resolve it to that field's `path` first -- call classify_field to
+find it if you are unsure. When the admin refers to a dropdown value by its
+label (e.g. "Postpaid"), use the underlying option `value` (e.g. "1"), not the
+label. A field referenced by a condition must already exist; if it does not,
+tell the admin to add it first rather than guessing a path. add_field also
+takes an `origin` attribute ("admin_added" by default, or "api") -- set
+origin="api" when the admin describes a field that an external system writes
+into rather than the customer (e.g. a credit score coming back from a lookup),
+so it never appears in customer-facing output. When telling the admin about a
+condition, always phrase it in plain language (e.g. "shown when Connection
+Type is Postpaid") -- never state a show_when's raw path/op/value verbatim,
+even in a free-text reply.
 """
 
 

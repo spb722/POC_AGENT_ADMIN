@@ -39,6 +39,24 @@ class FieldMatch(BaseModel):
     )
 
 
+class ShowWhen(BaseModel):
+    """A visibility condition on a field. Absent means always visible.
+
+    `path` is tested against the last value reported for it via
+    apply_conditional_rules/record_field_change -- not its on-disk default.
+    An unanswered trigger means the condition is false (hidden), not "assume
+    the default".
+    """
+
+    path: str = Field(description="Path of the field whose value is tested")
+    op: Literal["eq", "ne", "lt", "gte"]
+    value: str = Field(description="Compared against; always a string")
+    screen_id: str | None = Field(
+        default=None,
+        description="Defaults to the field's own screen. Set for cross-screen conditions.",
+    )
+
+
 EditOp = Literal[
     "add_field",
     "delete_field",
@@ -47,6 +65,8 @@ EditOp = Literal[
     "rename_option",
     "remove_option",
     "set_default_value",
+    "set_show_when",
+    "clear_show_when",
 ]
 
 
@@ -69,6 +89,18 @@ class FieldEdit(BaseModel):
     default_value: str | None = Field(
         default=None,
         description="add_field: initial 'value' for the new field. set_default_value: the new 'value' for an existing field.",
+    )
+    origin: Literal["admin_added", "api"] | None = Field(
+        default=None,
+        description=(
+            "add_field only, defaults to 'admin_added'. Use 'api' for a field an "
+            "external system writes back (e.g. via /preview/field-change), never "
+            "filled in by the customer -- audience='customer' hides it."
+        ),
+    )
+    show_when: ShowWhen | None = Field(
+        default=None,
+        description="Visibility condition. Used by add_field (initial condition) and set_show_when (replaces it). Ignored by clear_show_when.",
     )
 
     # add_option / rename_option / remove_option (values[] entries)

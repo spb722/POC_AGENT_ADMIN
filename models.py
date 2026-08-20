@@ -104,7 +104,15 @@ class FieldEdit(BaseModel):
         description=(
             "add_field only, defaults to 'admin_added'. Use 'api' for a field an "
             "external system writes back (e.g. via /preview/field-change), never "
-            "filled in by the customer -- audience='customer' hides it."
+            "filled in by the customer. It is hidden from customers unless "
+            "customer_visible is true."
+        ),
+    )
+    customer_visible: bool | None = Field(
+        default=None,
+        description=(
+            "add_field only: allow an origin='api' field to appear in "
+            "customer-facing responses. Defaults to false."
         ),
     )
     show_when: ShowWhen | None = Field(

@@ -99,11 +99,12 @@ label. A field referenced by a condition must already exist; if it does not,
 tell the admin to add it first rather than guessing a path. add_field also
 takes an `origin` attribute ("admin_added" by default, or "api") -- set
 origin="api" when the admin describes a field that an external system writes
-into rather than the customer (e.g. a credit score coming back from a lookup),
-so it never appears in customer-facing output. When telling the admin about a
-condition, always phrase it in plain language (e.g. "shown when Connection
-Type is Postpaid") -- never state a show_when's raw path/op/value verbatim,
-even in a free-text reply.
+into rather than the customer (e.g. a credit score coming back from a lookup).
+API-origin fields are hidden from customer-facing output by default; set
+customer_visible=true only when the admin explicitly wants that API result
+displayed to the customer. When telling the admin about a condition, always
+phrase it in plain language (e.g. "shown when Connection Type is Postpaid") --
+never state a show_when's raw path/op/value verbatim, even in a free-text reply.
 """
 
 

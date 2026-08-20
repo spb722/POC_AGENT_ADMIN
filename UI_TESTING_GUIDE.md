@@ -111,11 +111,10 @@ either a new **"Deposit Amount"** text field appears, **or** two new fields,
 both, and you will never see neither (once this step happens, one branch
 always fires).
 
-This is the important one to double check: **you should never see a "Credit
-Score" field anywhere in this response, or any other response, ever.** That
-number gets computed and used internally, but the customer's screen never
-receives it directly. If you ever see a field with a path containing
-`creditScore`, something is misconfigured — flag it.
+The same response also includes a **"Credit Score"** field containing the
+generated score. Render it like every other returned field. When the customer
+changes Credit Check Required to No, the score and its dependent financial
+fields all disappear together.
 
 ### 4. If Connection Type isn't Postpaid, nothing changes
 
@@ -166,7 +165,7 @@ on their end, no code change, and takes effect immediately without a restart.
 - [ ] After Credit Check Required = Yes, you show **either** Deposit Amount
       **or** Bank Name + Bank Account Number — whichever came back — never
       both, never neither.
-- [ ] You never render or reference a "Credit Score" field anywhere.
+- [ ] After Credit Check Required = Yes, you render the returned Credit Score.
 - [ ] Prepaid customers, and customers who answer Credit Check Required = No,
       see no new fields at all — the journey looks identical to before this
       feature existed.

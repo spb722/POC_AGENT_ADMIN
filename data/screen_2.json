@@ -162,6 +162,7 @@
         "required": false,
         "value": "",
         "origin": "api",
+        "customerVisible": true,
         "showWhen": {
           "path": "serviceDetails.creditCheckRequired",
           "op": "eq",

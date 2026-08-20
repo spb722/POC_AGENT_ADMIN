@@ -112,10 +112,10 @@ curl -X POST http://127.0.0.1:8000/preview/field-change -H 'Content-Type: applic
   -d '{"screen_id":"screen_2","path":"serviceDetails.creditCheckRequired","value":"YES"}'
 ```
 
-**Look for:** the response **already** contains either `serviceDetails.depositAmount`
-*or* `serviceDetails.bankName` + `serviceDetails.bankAccountNumber` — decided
-for you, in this one call. `serviceDetails.creditScore` itself is still never
-returned (it's `origin: "api"`, always hidden from customer-facing output).
+**Look for:** the response contains `serviceDetails.creditScore` with the
+generated score and either `serviceDetails.depositAmount` *or*
+`serviceDetails.bankName` + `serviceDetails.bankAccountNumber` — decided for
+you in this one call.
 
 Since the score is random, run this a few times (with a fresh `connectionType`
 POST first each time, or just repeat step 2) and you'll see it land in either
@@ -171,9 +171,9 @@ lookup never ran.
 curl "http://127.0.0.1:8000/admin/screens/screen_2?audience=customer"
 ```
 
-**Look for:** no `"showWhen"` key on any field, no field with `origin: "api"`
-— compare this against the `audience=admin` response from step 2, which has
-both.
+**Look for:** no `"showWhen"` or `"customerVisible"` key on any field. Credit
+Score remains marked `origin: "api"`, but is included because its admin screen
+definition explicitly opts into customer visibility.
 
 ---
 

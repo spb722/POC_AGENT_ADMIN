@@ -289,6 +289,10 @@ For deterministic credit-check testing, send the optional `userID` header:
 
 The header only affects the mock score generated when Credit Check Required is
 `YES`; all conditional state remains isolated by the payload's `session_id`.
+The customer response includes the generated `Credit Score` field and its value,
+followed by the matching Deposit Amount or bank-details branch. API-origin fields
+remain hidden by default unless their screen definition explicitly sets
+`customerVisible: true`.
 
 This is a **completely separate feature from `/admin/chat`**: no LLM call, no
 confirm/reject step, nothing ever written to disk. It's a plain lookup

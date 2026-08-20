@@ -133,7 +133,7 @@ def _screen_summary(backend: FilesystemBackend, screen_id: str) -> str:
 # agent report a false "no change needed" or a no-op success instead of
 # telling the admin the edit isn't possible. See _unsupported_edit_fields.
 _ALLOWED_EDIT_FIELDS: dict[str, set[str]] = {
-    "add_field": {"field_label", "control_type", "data_type", "required", "default_value", "origin", "show_when", "options"},
+    "add_field": {"field_label", "control_type", "data_type", "required", "default_value", "origin", "customer_visible", "show_when", "options"},
     "delete_field": set(),
     "rename_field": {"field_label"},
     "add_option": {"option_value", "option_label"},
@@ -145,7 +145,7 @@ _ALLOWED_EDIT_FIELDS: dict[str, set[str]] = {
 }
 _EDIT_ATTR_NAMES = [
     "field_label", "control_type", "data_type", "required", "default_value",
-    "option_value", "option_label", "new_option_value", "origin", "show_when", "options",
+    "option_value", "option_label", "new_option_value", "origin", "customer_visible", "show_when", "options",
 ]
 
 
@@ -355,6 +355,8 @@ def build_tools(backend: FilesystemBackend, model) -> list:
             }
             if control_type in ("dropdown", "radio"):
                 new_field["values"] = [{"label": o.label, "value": o.value} for o in edit.options] if edit.options else []
+            if edit.customer_visible is not None:
+                new_field["customerVisible"] = edit.customer_visible
             if edit.show_when is not None:
                 new_field["showWhen"] = _show_when_json(edit.show_when)
             fields.append(new_field)

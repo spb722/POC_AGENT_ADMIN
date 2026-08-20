@@ -295,12 +295,12 @@ def _screen_view(screen_id: str, session_id: str | None = None, audience: str = 
         draft_fields = get_draft_fields(session_id, screen_id)
         if draft_fields is not None:
             if audience == "customer":
-                draft_fields = filter_visible(draft_fields, screen_id)
+                draft_fields = filter_visible(draft_fields, screen_id, session_id)
             screen[0]["fields"] = draft_fields
             return screen
-    fields, _ = resolve_screen_fields(get_backend(), screen_id)
+    fields, _ = resolve_screen_fields(get_backend(), screen_id, session_id)
     if audience == "customer":
-        fields = filter_visible(fields, screen_id)
+        fields = filter_visible(fields, screen_id, session_id)
     screen[0]["fields"] = fields
     return screen
 
@@ -403,7 +403,9 @@ def preview_field_change(body: ConditionalPreviewRequest) -> ConditionalPreviewR
     admin-chat agent: no LLM call, no confirm/approve step.
     """
     try:
-        fields, rule_matched = apply_conditional_rules(get_backend(), body.screen_id, body.path, body.value)
+        fields, rule_matched = apply_conditional_rules(
+            get_backend(), body.screen_id, body.path, body.value, body.session_id
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     fields = _strip_for_customer(fields)

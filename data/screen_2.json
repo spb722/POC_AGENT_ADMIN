@@ -127,6 +127,91 @@
         "required": true,
         "value": "next Monday",
         "origin": "extracted"
+      },
+      {
+        "type": "set",
+        "path": "serviceDetails.creditCheckRequired",
+        "fieldLabel": "Credit Check Required",
+        "controlType": "radio",
+        "dataType": "list",
+        "required": false,
+        "value": "",
+        "origin": "admin_added",
+        "values": [
+          {
+            "label": "Yes",
+            "value": "YES"
+          },
+          {
+            "label": "No",
+            "value": "NO"
+          }
+        ],
+        "showWhen": {
+          "path": "serviceDetails.connectionType",
+          "op": "eq",
+          "value": "1"
+        }
+      },
+      {
+        "type": "set",
+        "path": "serviceDetails.creditScore",
+        "fieldLabel": "Credit Score",
+        "controlType": "text",
+        "dataType": "text",
+        "required": false,
+        "value": "",
+        "origin": "api",
+        "showWhen": {
+          "path": "serviceDetails.creditCheckRequired",
+          "op": "eq",
+          "value": "YES"
+        }
+      },
+      {
+        "type": "set",
+        "path": "serviceDetails.depositAmount",
+        "fieldLabel": "Deposit Amount",
+        "controlType": "text",
+        "dataType": "text",
+        "required": false,
+        "value": "",
+        "origin": "admin_added",
+        "showWhen": {
+          "path": "serviceDetails.creditScore",
+          "op": "lt",
+          "value": "500"
+        }
+      },
+      {
+        "type": "set",
+        "path": "serviceDetails.bankName",
+        "fieldLabel": "Bank Name",
+        "controlType": "text",
+        "dataType": "text",
+        "required": false,
+        "value": "",
+        "origin": "admin_added",
+        "showWhen": {
+          "path": "serviceDetails.creditScore",
+          "op": "gte",
+          "value": "500"
+        }
+      },
+      {
+        "type": "set",
+        "path": "serviceDetails.bankAccountNumber",
+        "fieldLabel": "Bank Account Number",
+        "controlType": "text",
+        "dataType": "text",
+        "required": false,
+        "value": "",
+        "origin": "admin_added",
+        "showWhen": {
+          "path": "serviceDetails.creditScore",
+          "op": "gte",
+          "value": "500"
+        }
       }
     ],
     "ask": "Service Name",

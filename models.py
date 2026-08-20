@@ -157,6 +157,13 @@ class ConditionalPreviewRequest(BaseModel):
     screen_id: str
     path: str
     value: str
+    session_id: str | None = Field(
+        default=None,
+        description=(
+            "Customer-session identifier used to isolate conditional field state. "
+            "Optional for backwards compatibility; callers should always provide it."
+        ),
+    )
 
 
 class ConditionalPreviewResponse(BaseModel):

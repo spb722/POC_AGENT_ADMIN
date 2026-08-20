@@ -110,13 +110,14 @@ def _screen_display(screen_id: str) -> str:
 
 
 def _strip_for_customer(fields: list[dict]) -> list[dict]:
-    """Drop API-origin fields unless explicitly customer-visible, and strip
-    build-time visibility metadata from the rest. Never mutates the input --
-    returns fresh copies.
+    """Drop explicitly hidden fields and strip build-time visibility metadata.
+
+    Visibility is independent of value origin: API-populated fields are visible
+    by default just like customer-populated fields. Never mutates the input.
     """
     out = []
     for f in fields:
-        if f.get("origin") == "api" and not f.get("customerVisible", False):
+        if f.get("customerVisible", True) is False:
             continue
         out.append(
             {
@@ -433,8 +434,8 @@ def get_screen(screen_id: str, session_id: str | None = None, audience: Literal[
     can be previewed before the admin confirms it.
 
     `audience=customer` drops any field whose `showWhen` doesn't currently
-    hold, strips visibility metadata from the rest, and drops origin=='api'
-    fields unless they opt in with customerVisible=true -- the shape a
+    hold, strips visibility metadata from the rest, and drops fields explicitly
+    marked customerVisible=false -- the shape a
     customer-facing UI should see. `audience=admin`
     (the default) shows every field, met condition or not, so the admin can
     verify/manage a condition right after creating it.

@@ -355,8 +355,13 @@ def build_tools(backend: FilesystemBackend, model) -> list:
             }
             if control_type in ("dropdown", "radio"):
                 new_field["values"] = [{"label": o.label, "value": o.value} for o in edit.options] if edit.options else []
-            if edit.customer_visible is not None:
-                new_field["customerVisible"] = edit.customer_visible
+            # Value source and display visibility are independent. New fields
+            # are customer-visible unless the admin explicitly requests an
+            # internal/hidden field; persist the default so downstream clients
+            # never have to infer visibility from origin.
+            new_field["customerVisible"] = (
+                edit.customer_visible if edit.customer_visible is not None else True
+            )
             if edit.show_when is not None:
                 new_field["showWhen"] = _show_when_json(edit.show_when)
             fields.append(new_field)

@@ -100,9 +100,14 @@ tell the admin to add it first rather than guessing a path. add_field also
 takes an `origin` attribute ("admin_added" by default, or "api") -- set
 origin="api" when the admin describes a field that an external system writes
 into rather than the customer (e.g. a credit score coming back from a lookup).
-API-origin fields are hidden from customer-facing output by default; set
-customer_visible=true only when the admin explicitly wants that API result
-displayed to the customer. When telling the admin about a condition, always
+`origin` describes only who supplies the value; it does NOT control whether
+the customer can see the field. API-origin fields are customer-visible by
+default. Phrases such as "filled by an external system", "not filled by the
+customer", and "read only" MUST NOT make the field hidden. If the request says
+"show", "display", "visible", or "only show when", set customer_visible=true,
+including when origin="api". Set customer_visible=false only when the admin
+explicitly says the field is "hidden", "internal only", or "do not display".
+When telling the admin about a condition, always
 phrase it in plain language (e.g. "shown when Connection Type is Postpaid") --
 never state a show_when's raw path/op/value verbatim, even in a free-text reply.
 """

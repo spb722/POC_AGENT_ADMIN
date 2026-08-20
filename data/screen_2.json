@@ -147,10 +147,12 @@
             "value": "NO"
           }
         ],
+        "customerVisible": true,
         "showWhen": {
           "path": "serviceDetails.connectionType",
           "op": "eq",
-          "value": "1"
+          "value": "1",
+          "screenId": "screen_2"
         }
       },
       {
@@ -166,7 +168,8 @@
         "showWhen": {
           "path": "serviceDetails.creditCheckRequired",
           "op": "eq",
-          "value": "YES"
+          "value": "YES",
+          "screenId": "screen_2"
         }
       },
       {
@@ -178,10 +181,12 @@
         "required": false,
         "value": "",
         "origin": "admin_added",
+        "customerVisible": true,
         "showWhen": {
           "path": "serviceDetails.creditScore",
           "op": "lt",
-          "value": "500"
+          "value": "500",
+          "screenId": "screen_2"
         }
       },
       {
@@ -193,10 +198,12 @@
         "required": false,
         "value": "",
         "origin": "admin_added",
+        "customerVisible": true,
         "showWhen": {
           "path": "serviceDetails.creditScore",
           "op": "gte",
-          "value": "500"
+          "value": "500",
+          "screenId": "screen_2"
         }
       },
       {
@@ -208,10 +215,12 @@
         "required": false,
         "value": "",
         "origin": "admin_added",
+        "customerVisible": true,
         "showWhen": {
           "path": "serviceDetails.creditScore",
           "op": "gte",
-          "value": "500"
+          "value": "500",
+          "screenId": "screen_2"
         }
       }
     ],

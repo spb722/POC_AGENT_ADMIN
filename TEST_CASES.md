@@ -49,7 +49,7 @@ curl -X POST http://127.0.0.1:8000/admin/chat -H 'Content-Type: application/json
 
 ```bash
 curl -X POST http://127.0.0.1:8000/admin/chat -H 'Content-Type: application/json' \
-  -d '{"session_id":"demo-2","message":"On screen 2, add a hidden Credit Score field. It should be filled in by an external system, not the customer. Only show it when Credit Check Required is Yes."}'
+  -d '{"session_id":"demo-2","message":"On screen 2, add a Credit Score field. It should be filled in by an external system, not the customer. Only show it when Credit Check Required is Yes."}'
 ```
 
 Confirm with `"yes"` under `"session_id":"demo-2"` same as above.
@@ -81,7 +81,8 @@ curl "http://127.0.0.1:8000/admin/screens/screen_2?audience=admin"
 ```
 
 **Look for:** all 5 new fields present — `creditCheckRequired`, `creditScore`
-(with `"origin": "api"`), `depositAmount`, `bankName`, `bankAccountNumber` —
+(with `"origin": "api"` and `"customerVisible": true`), `depositAmount`,
+`bankName`, `bankAccountNumber` —
 each with its own `"showWhen"` block, even though no customer has triggered
 anything yet. This is the "admin bypasses filtering" behavior we agreed on.
 

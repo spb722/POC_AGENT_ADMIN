@@ -148,7 +148,10 @@ def apply_conditional_rules(
 ) -> tuple[list[dict[str, Any]], str | None]:
     """Look up a matching conditional rule for (screen_id, path, value) and
     return a preview copy of that screen's fields with the rule's changes
-    applied (or the fields unchanged if nothing matches).
+    applied (or the fields unchanged if nothing matches). The field at `path`
+    itself has its `value` set to the submitted `value` in the response, so
+    the one field the caller just answered reflects their own answer rather
+    than its on-disk seed default.
 
     Read-only: never writes screen_id's file, and the returned fields are a
     deep copy so the caller can't accidentally mutate the on-disk screen. As
@@ -177,6 +180,15 @@ def apply_conditional_rules(
     )
 
     fields = copy.deepcopy(screen["fields"])
+
+    # Echo the customer's own answer back onto the field they just answered,
+    # so the response is self-consistent (the field the UI just posted for
+    # shows what was actually submitted, not just its on-disk seed default).
+    # A matching rule's update_field still wins if it targets this same path.
+    changed_field = _find_field(fields, path)
+    if changed_field is not None:
+        changed_field["value"] = value
+
     rule_id = None
     if rule is not None:
         for change in rule["changes"]:

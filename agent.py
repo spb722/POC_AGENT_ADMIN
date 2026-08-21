@@ -119,7 +119,7 @@ def build_agent():
         raise RuntimeError("OPENROUTER_API_KEY is not set (see .env.example)")
     model_name = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-4.6")
 
-    model = ChatOpenRouter(model=model_name)
+    model = ChatOpenRouter(model=model_name, temperature=0)
     backend = FilesystemBackend(root_dir=DATA_DIR)
     tools = build_tools(backend, model)
     checkpointer = InMemorySaver()

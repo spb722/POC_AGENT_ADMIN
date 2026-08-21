@@ -338,9 +338,9 @@ just keep calling `/preview/field-change` the way it already does, and later
 ```bash
 BASE=http://127.0.0.1:8000
 
-# Baseline: screen_2 defaults to Postpaid, so screen_3 has all 14 fields
+# Baseline: screen_2 defaults to Prepaid, so screen_3 has 10 fields
 curl -s "$BASE/admin/screens/screen_3" | python3 -c "import json,sys; print(len(json.load(sys.stdin)[0]['fields']))"
-# -> 14
+# -> 10
 
 # Customer picks Prepaid on screen_2 -- the ONLY call the UI makes for this
 curl -s -X POST $BASE/preview/field-change -H "Content-Type: application/json" \
@@ -354,7 +354,7 @@ curl -s "$BASE/admin/screens/screen_3" | python3 -c "import json,sys; print(len(
 
 If a trigger field has never been reported via `/preview/field-change` (e.g.
 right after a server restart), `GET` falls back to that field's on-disk
-default value — which is why the baseline above already reflects Postpaid
+default value — which is why the baseline above already reflects Prepaid
 without any prior call.
 
 **Important — this state is in-memory only**, the same way admin-chat's

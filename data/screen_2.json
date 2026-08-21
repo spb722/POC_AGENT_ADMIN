@@ -12,16 +12,16 @@
         "controlType": "dropdown",
         "dataType": "list",
         "required": true,
-        "value": "1",
+        "value": "2",
         "origin": "extracted",
         "values": [
           {
-            "label": "Postpaid",
-            "value": "1"
-          },
-          {
             "label": "Prepaid",
             "value": "2"
+          },
+          {
+            "label": "Postpaid",
+            "value": "1"
           }
         ]
       },
